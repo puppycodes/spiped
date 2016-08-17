@@ -1,5 +1,6 @@
 #include <sys/socket.h>
 
+#include <assert.h>
 #include <errno.h>
 #include <pthread.h>
 #include <stdint.h>
@@ -17,6 +18,7 @@ struct push {
 	uint8_t buf[BUFSIZ];
 	int in;
 	int out;
+	pthread_t thr;
 };
 
 /* Bit-pushing thread. */
@@ -61,9 +63,6 @@ workthread(void * cookie)
 		}
 	}
 
-	/* Free our parameters. */
-	free(P);
-
 	/* We're done. */
 	return (NULL);
 }
@@ -72,11 +71,10 @@ workthread(void * cookie)
  * pushbits(in, out):
  * Create a thread which copies data from ${in} to ${out}.
  */
-int
+void *
 pushbits(int in, int out)
 {
 	struct push * P;
-	pthread_t thr;
 	int rc;
 
 	/* Allocate structure. */
@@ -86,17 +84,56 @@ pushbits(int in, int out)
 	P->out = out;
 
 	/* Create thread. */
-	if ((rc = pthread_create(&thr, NULL, workthread, P)) != 0) {
+	if ((rc = pthread_create(&P->thr, NULL, workthread, P)) != 0) {
 		warn0("pthread_create: %s", strerror(rc));
 		goto err1;
 	}
 
 	/* Success! */
-	return (0);
+	return (P);
 
 err1:
 	free(P);
 err0:
 	/* Failure! */
-	return (-1);
+	return (NULL);
+}
+
+/**
+ * pushbits_free(pushbits_cookie):
+ * Free memory associated with the ${pushbits_cookie}.
+ */
+void
+pushbits_free(void * cookie)
+{
+	struct push * P = cookie;
+
+	/* Behave consistently with free(NULL). */
+	if (P == NULL)
+		return;
+
+	/* Wait for thread to exit. */
+	pthread_join(P->thr, NULL);
+
+	/* Clean up memory. */
+	free(P);
+}
+
+/**
+ * pushbits_cancel(push_cookie):
+ * Cancel the thread in ${push_cookie} and free associated memory.
+ */
+void
+pushbits_cancel_free(void * cookie)
+{
+	struct push * P = cookie;
+
+	/* Send cancellation request to the thread. */
+	if (pthread_cancel(P->thr)) {
+		warn0("Could not schedule thread cancellation");
+		exit(1);
+	}
+
+	/* Free memory. */
+	pushbits_free(P);
 }

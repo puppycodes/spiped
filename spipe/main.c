@@ -62,6 +62,8 @@ main(int argc, char * argv[])
 	int s[2];
 	int conndone = 0;
 	void * conn_cookie;
+	void * push_to_s;
+	void * push_from_s;
 
 	WARNP_INIT;
 
@@ -170,30 +172,36 @@ main(int argc, char * argv[])
 	}
 
 	/* Push bits from stdin into the socket. */
-	if (pushbits(STDIN_FILENO, s[0])) {
+	if ((push_to_s = pushbits(STDIN_FILENO, s[0])) == NULL) {
 		warnp("Could not push bits");
 		goto err3;
 	}
 
 	/* Push bits from the socket to stdout. */
-	if (pushbits(s[0], STDOUT_FILENO)) {
+	if ((push_from_s = pushbits(s[0], STDOUT_FILENO)) == NULL) {
 		warnp("Could not push bits");
-		goto err3;
+		goto err4;
 	}
 
 	/* Loop until we die. */
 	if (events_spin(&conndone)) {
 		warnp("Error running event loop");
-		exit(1);
+		goto err5;
 	}
 
 	/* Clean up. */
+	pushbits_free(push_to_s);
+	pushbits_free(push_from_s);
 	events_shutdown();
 	free(K);
 
 	/* Success! */
 	exit(0);
 
+err5:
+	pushbits_cancel_free(push_from_s);
+err4:
+	pushbits_cancel_free(push_to_s);
 err3:
 	proto_conn_drop(conn_cookie);
 	sas_t = NULL;
