@@ -7,7 +7,8 @@
 # - server should quit (because we gave it -1).
 
 ### Constants
-
+flag_1=${s_basename}-1.flag
+flag_2=${s_basename}-2.flag
 
 ### Actual command
 scenario_cmd() {
@@ -20,16 +21,22 @@ scenario_cmd() {
 	# seconds isn't portable.
 	setup_check_variables
 	(
-		( echo "" ; sleep 2 ) | nc 127.0.0.1 ${src_port} >/dev/null
+		(
+			echo ""
+			touch ${flag_1}
+			wait_for_file ${flag_2}
+		) | nc 127.0.0.1 ${src_port} >/dev/null
 		echo $? > ${c_exitfile}
 	) &
+
+	wait_for_file ${flag_1}
 
 	setup_check_variables
 	(
 		echo "" | nc 127.0.0.1 ${src_port} >/dev/null
 		echo $? > ${c_exitfile}
 	)
-	sleep 3
+	touch ${flag_2}
 
 	# Wait for server(s) to quit.
 	servers_stop
