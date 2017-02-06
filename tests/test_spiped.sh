@@ -91,7 +91,7 @@ setup_spiped_decryption_server () {
 		-s [127.0.0.1]:${mid_port}	\
 		-t [127.0.0.1]:${dst_port}	\
 		-p ${s_basename}-spiped-d.pid	\
-		-k /dev/null -o 1
+		-D -k /dev/null -o 1
 
 	# Wait for spiped server to definitely be started.
 	sleep 1
@@ -106,7 +106,7 @@ setup_spiped_encryption_server () {
 		-s [127.0.0.1]:${src_port}	\
 		-t [127.0.0.1]:${mid_port}	\
 		-p ${s_basename}-spiped-e.pid	\
-		-k /dev/null -o 1
+		-D -k /dev/null -o 1
 
 	# Wait for spiped server to definitely be started.
 	sleep 1
